@@ -18,118 +18,67 @@ import nltk
 import wikipydia
 import re
 from optArgs import optParse, options, arguments
-
-
-#from pyparsing import nestedExpr
-
-
-
-#from mwlib.uparser import simpleparse
-#from mwlib.uparser import parseString, simpleparse
 import mwlib
 from mwlib.refine.compat import parse_txt
 from mwlib.refine import core 
 from mwlib.parser import nodes
 
 
-def splitToSections(parse,lead=None,sections=None):
-    if not sections: sections=[]
-    # returns a list of subtrees of type section
-    for child in parse.children:
-        if type(child) == nodes.Section:
-            sections.append(child)
-        elif not sections:
-            if not lead:
-                lead = parse_txt(raw='== ==').children[0]
-                lead.children=[]
-            lead.children.append(child)
-        else:
-            splitToSections(child,lead,sections)
-    return [lead]+sections
+
+# map all node types to the empty string
+nodeTypes = [getattr(nodes,d) for d in dir(nodes)]
+nodeTypes = [x for x in nodeTypes if type(x)==type]
+node2markup = dict((n,'') for n in nodeTypes)
+# except for those
+node2markup[nodes.Section]='<s>'
+node2markup[nodes.Item]='<i>'
 
 
-def extractText(simpleParse,collectedText=None):
-    if collectedText==None: collectedText=[]
-    for child in simpleParse.children:
-        #print type(child),len(child.children)
-        if type(child)==nodes.TagNode:
-            pass
-        elif len(child.children)==0:
-            if child.text:
-                collectedText.append(child.text)
-                if options.trace: print child.text.encode('utf-8'),
-            elif child.target:
-                if type(child)==nodes.ArticleLink:
-                    collectedText.append(child.target)
-                    if options.trace: print child.target.encode('utf-8'),
-            elif hasattr(child,'math') and child.math:
-                collectedText.append(child.math)
-                if options.trace: print child.math.encode('utf-8'),
-            #elif type(child)==nodes.Node: pass
-            else:
-                print >> sys.stderr,'#######cannot handle',type(child),
-                if options.trace:
-                    print >> sys.stderr, dir(child)
-                    for a in dir(child):
-                        print >> sys.stderr, a, getattr(child,a)
-        else:
-            extractText(child,collectedText)
-    return collectedText
 
+def tree2string(tree):
+    snippets = []
+    _tree2string(tree,snippets)
+    return ''.join(snippets)
 
-def processArticle(text):
-    tree = parse_txt(text)
-    if options.trace:
-        print '############# parse ###########'
-        core.show(tree)
-        print '############# sentences ###########'
+def _tree2string(tree,snippets,level=0):
+    snippets.append(node2markup[type(tree)])
+    if options.trace: print '  '*level,type(tree)
+    try:
+        if type(tree)==nodes.ArticleLink:
+            if not tree.children:
+                if tree.text:
+                    snippets.append(tree.text)
+                else:
+                    snippets.append(tree.target)
+                if options.trace: 
+                    print '  '*level,'ArticleLink: children:',len(tree.children)
+                    print '  '*level,'target',tree.target.encode('utf-8')
+                    print '  '*level,'text:',tree.text.encode('utf-8')
+                return
+        elif type(tree)==nodes.TagNode:
+            return
+        elif tree.text:
+            if options.trace: print '  '*level,'text:',tree.text.encode('utf-8')
+            snippets.append(tree.text)
+    except AttributeError: pass
+    try:
+        for node in tree.children:
+            _tree2string(node,snippets,level+1)
+    except AttributeError: pass
 
-    return processTree(tree)
-
-def processTree(tree):
-    return [processSection(section) for section in  splitToSections(tree)]
-        
-        
-
-
-def processSection(section,splitAtNL=True):
-    result = []
-    extractedText = ''.join(extractText(section))
-
-
-    '''
-    expr = nestedExpr('{{','}}').leaveWhitespace()
-    bracketedItems = expr.parseString('{{'+extractedText+'}}').asList()[0]
-    res = []
-    for item in bracketedItems:
-        if not isinstance(item, list):
-            res.append(item)
-    extractedText = ' '.join(res)
-    '''
-
-    while len(set(extractedText) & set('{}'))==2:
-        extractedText = re.sub('{[^{}]*}',' ',extractedText)
-
+def cleanup(text):
+    # get rid of (nested) template calls 
+    while len(set(text) & set('{}'))==2:
+        text = re.sub('{[^{}]*}',' ',text)
     # little hack to change the order of 
-    extractedText = extractedText.replace('."','".')
+    text = text.replace('."','".')
+    
+    #strip empty lines
+    text = [x.strip() for x in text.split('\n')]
+    text = [x for x in text if x and x not in '<i><s>']
+    text = '\n'.join(text)
 
-    if splitAtNL: lines = extractedText.split('\n')
-    else: lines = [extractedText]
-
-    for text in lines:
-        for sentence in sent_detector.tokenize(text.strip()):
-            if sentence:
-                result.append(sentence)
-    return result
-
-
-
-def processLines(lines):
-    if not lines: return
-    data='\n'.join(lines)
-    data=data.split('>',1)[1]
-    data=data.rsplit('<',1)[0]
-    processArticle(data)
+    return text
 
 
 languages = [p.split(':') for p in '''en:english cz:czech da:danish nl:dutch et:estonian fi:finnish fr:french de:german el:greek it:italian no:norwegian pt:portuguese sl:slovene es:spanish sw:swedish tr:turkish'''.split()]
@@ -148,27 +97,11 @@ def main():
     optParse(
         trace__T=None,
         language__L='|'.join(l for p in languages for l in p),
-        fromDump__D=''
+        fromDump__D='',
+        showType__S=None
         )
 
     sent_detector = nltk.data.load('tokenizers/punkt/%s.pickle' % lang2long(options.language))
-
-
-    # print mwlib.__file__
-    
-    '''
-    source = os.popen("zcat /share/emplus/corpora/wikipedia-201001/dewiki-20100117-pages-articles.xml.gz | gawk '/<title>/{print} /<text/,/<[/]text/'")
-
-    lines = []
-    for line in source:
-        if line.strip().startswith('<title>'):
-            processLines(lines)
-            lines=[]
-            print line
-
-        else:
-            lines.append(line)
-            '''
 
 
     if options.fromDump:
@@ -194,7 +127,16 @@ def main():
             
 
     else:
+        for title in arguments:
+            if title == 'Barack Obama' and options.language=='en':
+                text = open('obama.src').read().decode('utf-8')
+            else:
+                text = wikipydia.query_text_raw(title, language=lang2short(options.language))['text']
+            tree = parse_txt(text)
+            text = tree2string(tree)
+            print cleanup(text).encode('utf-8')
 
+        '''
         for title in arguments:
             if title == 'Barack Obama' and options.language=='en':
                 text = open('obama.src').read().decode('utf-8')
@@ -205,8 +147,8 @@ def main():
                 print '############# ',title,', source ###########'
                 print text.encode('utf-8')
             sections = processArticle(text)
-            print '\n'.join(x for section in sections for x in section).encode('utf-8')
-
+            print '\n'.join(x for section in sections for x in ['===section===']+section).encode('utf-8')
+'''
 
 
 
