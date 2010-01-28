@@ -50,6 +50,7 @@ def splitToSections(parse,lead=None,sections=None):
 
 def extractText(simpleParse,collectedText=None):
     if collectedText==None: collectedText=[]
+    if not simpleParse: return []
     for child in simpleParse.children:
         #print type(child),len(child.children)
         if type(child)==nodes.TagNode:
