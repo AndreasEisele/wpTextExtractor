@@ -173,13 +173,13 @@ def main():
 
     if options.fromDump:
         if options.fromDump.endswith('.gz'):
-            source = popen('zcat %s' % options.fromDump)
+            source = os.popen('zcat %s' % options.fromDump)
         else:
             source = open(options.fromDump)
         currentLines = []
         for line in source:
             line = line.strip()
-            if line.startwith('<title>'):
+            if line.startswith('<title>'):
                 print line
             elif line.startswith('<text'):
                 currentLines.append(line.split('>',1)[1])
@@ -188,6 +188,7 @@ def main():
                     currentLines.append(line.rsplit('<',1)[0])
                     sections = processArticle('\n'.join(currentLines))
                     print '\n'.join(x for section in sections for x in section).encode('utf-8')
+                    print
                     currentLines = []
                 else:
                     currentLines.append(line)
