@@ -118,7 +118,7 @@ def main():
 
     if options.fromDump:
         if options.fromDump.endswith('.gz'):
-            source = popen('zcat %s' % options.fromDump)
+            source = os.popen('zcat %s' % options.fromDump)
         else:
             source = open(options.fromDump)
         currentLines = []
