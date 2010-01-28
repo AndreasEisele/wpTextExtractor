@@ -147,7 +147,8 @@ def main():
     global sent_detector
     optParse(
         trace__T=None,
-        language__L='|'.join(l for p in languages for l in p)
+        language__L='|'.join(l for p in languages for l in p),
+        fromDump__D=''
         )
 
     sent_detector = nltk.data.load('tokenizers/punkt/%s.pickle' % lang2long(options.language))
@@ -170,17 +171,41 @@ def main():
             '''
 
 
-    for title in arguments:
-        if title == 'Barack Obama' and options.language=='en':
-            text = open('obama.src').read().decode('utf-8')
+    if options.fromDump:
+        if options.fromDump.endswith('.gz'):
+            source = popen('zcat %s' % options.fromDump)
         else:
-            text = wikipydia.query_text_raw(title, language=lang2short(options.language))['text']
+            source = open(options.fromDump)
+        currentLines = []
+        for line in source:
+            line = line.strip()
+            if line.startwith('<title>'):
+                print line
+            elif line.startswith('<text'):
+                currentLines.append(line.split('>',1)[1])
+            elif currentLines:
+                if line.endswith('</text>'):
+                    currentLines.append(line.rsplit('<',1)[0])
+                    sections = processArticle('\n'.join(currentLines))
+                    print '\n'.join(x for section in sections for x in section).encode('utf-8')
+                    currentLines = []
+                else:
+                    currentLines.append(line)
+            
 
-        if options.trace:
-            print '############# ',title,', source ###########'
-            print text.encode('utf-8')
-        sections = processArticle(text)
-        print '\n'.join(x for section in sections for x in section).encode('utf-8')
+    else:
+
+        for title in arguments:
+            if title == 'Barack Obama' and options.language=='en':
+                text = open('obama.src').read().decode('utf-8')
+            else:
+                text = wikipydia.query_text_raw(title, language=lang2short(options.language))['text']
+
+            if options.trace:
+                print '############# ',title,', source ###########'
+                print text.encode('utf-8')
+            sections = processArticle(text)
+            print '\n'.join(x for section in sections for x in section).encode('utf-8')
 
 
 
