@@ -124,7 +124,7 @@ def main():
         currentLines = []
         for line in source:
             line = line.strip()
-            if line.startwith('<title>'):
+            if line.startswith('<title>'):
                 print line
             elif line.startswith('<text'):
                 currentLines.append(line.split('>',1)[1])
