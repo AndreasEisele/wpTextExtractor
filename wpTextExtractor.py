@@ -68,8 +68,12 @@ def _tree2string(tree,snippets,level=0):
 
 def cleanup(text):
     # get rid of (nested) template calls 
-    while len(set(text) & set('{}'))==2:
+    oldLen = len(text)
+    text = re.sub('{[^{}]*}',' ',text)
+    while len(text)<oldLen:
+        oldLen = len(text)
         text = re.sub('{[^{}]*}',' ',text)
+
     # little hack to change the order of 
     text = text.replace('."','".')
     
