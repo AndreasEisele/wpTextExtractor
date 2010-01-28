@@ -91,6 +91,18 @@ def lang2short(lang):
     for p in languages:
         if lang in p: return p[0]
 
+def raw2sentences(raw):
+    tree = parse_txt(raw)
+    text = tree2string(tree)
+    lines = cleanup(text).split('\n')
+    result = []
+    for line in lines:
+        if line.startswith('<'):
+            result.append(line)
+        else:
+            result += sent_detector.tokenize(line.strip())
+    return result
+
 
 def main():
     global sent_detector
@@ -119,8 +131,7 @@ def main():
             elif currentLines:
                 if line.endswith('</text>'):
                     currentLines.append(line.rsplit('<',1)[0])
-                    sections = processArticle('\n'.join(currentLines))
-                    print '\n'.join(x for section in sections for x in section).encode('utf-8')
+                    print '\n'.join(raw2sentences('\n'.join(currentLines)))
                     currentLines = []
                 else:
                     currentLines.append(line)
@@ -132,24 +143,7 @@ def main():
                 text = open('obama.src').read().decode('utf-8')
             else:
                 text = wikipydia.query_text_raw(title, language=lang2short(options.language))['text']
-            tree = parse_txt(text)
-            text = tree2string(tree)
-            print cleanup(text).encode('utf-8')
-
-        '''
-        for title in arguments:
-            if title == 'Barack Obama' and options.language=='en':
-                text = open('obama.src').read().decode('utf-8')
-            else:
-                text = wikipydia.query_text_raw(title, language=lang2short(options.language))['text']
-
-            if options.trace:
-                print '############# ',title,', source ###########'
-                print text.encode('utf-8')
-            sections = processArticle(text)
-            print '\n'.join(x for section in sections for x in ['===section===']+section).encode('utf-8')
-'''
-
+            print '\n'.join(raw2sentences(text)).encode('utf-8')
 
 
 
