@@ -110,6 +110,10 @@ def processSection(section,splitAtNL=True):
     while len(set(extractedText) & set('{}'))==2:
         extractedText = re.sub('{[^{}]*}',' ',extractedText)
 
+
+    if not options.keepComments:    
+        extractedText = re.sub('<!--(?s).*?-->','',extractedText)
+                
     # little hack to change the order of 
     extractedText = extractedText.replace('."','".')
 
@@ -148,7 +152,8 @@ def main():
     optParse(
         trace__T=None,
         language__L='|'.join(l for p in languages for l in p),
-        fromDump__D=''
+        fromDump__D='',
+        keepComments__C=None
         )
 
     sent_detector = nltk.data.load('tokenizers/punkt/%s.pickle' % lang2long(options.language))
