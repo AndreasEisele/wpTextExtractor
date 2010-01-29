@@ -68,8 +68,7 @@ def _tree2string(tree,snippets,level=0):
 
 def cleanup(text):
     # get rid of (nested) template calls 
-    oldLen = len(text)
-    text = re.sub('{[^{}]*}',' ',text)
+    oldLen = 1E10
     while len(text)<oldLen:
         oldLen = len(text)
         text = re.sub('{[^{}]*}',' ',text)
