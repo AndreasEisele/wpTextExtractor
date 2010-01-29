@@ -35,6 +35,7 @@ node2markup[nodes.Item]='<i>'
 
 
 
+
 def tree2string(tree):
     snippets = []
     _tree2string(tree,snippets)
@@ -94,21 +95,31 @@ def lang2short(lang):
     for p in languages:
         if lang in p: return p[0]
 
-def raw2sentences(raw):
-    tree = parse_txt(raw)
+def wiki2sentences(wiki, sent_detector,withTags=True):
+    tree = parse_txt(wiki)
     text = tree2string(tree)
     lines = cleanup(text).split('\n')
-    result = []
+    sentences = []
+    tags = []
     for line in lines:
-        if line.startswith('<'):
-            result.append(line)
+        if line.startswith('<s>'):
+            sentences.append(line[3:].strip())
+            tags.append('Section')
+        elif line.startswith('<i>'):
+            sentences.append(line[3:].strip())
+            tags.append('Item')
         else:
-            result += sent_detector.tokenize(line.strip())
-    return result
+            newSentences = sent_detector.tokenize(line.strip())
+            sentences += newSentences
+            tags += ['Sentence']*(len(newSentences)-1)
+            tags.append('LastSentence')
+    if withTags:
+        return sentences,tags
+    else:
+        return sentences
 
 
 def main():
-    global sent_detector
     optParse(
         trace__T=None,
         language__L='|'.join(l for p in languages for l in p),
@@ -134,7 +145,8 @@ def main():
             elif currentLines:
                 if line.endswith('</text>'):
                     currentLines.append(line.rsplit('<',1)[0])
-                    print '\n'.join(raw2sentences('\n'.join(currentLines)))
+                    print '\n'.join(wiki2sentences('\n'.join(currentLines)),
+                                    sent_detector)
                     currentLines = []
                 else:
                     currentLines.append(line)
@@ -146,7 +158,7 @@ def main():
                 text = open('obama.src').read().decode('utf-8')
             else:
                 text = wikipydia.query_text_raw(title, language=lang2short(options.language))['text']
-            print '\n'.join(raw2sentences(text)).encode('utf-8')
+            print '\n'.join(wiki2sentences(text),sent_detector).encode('utf-8')
 
 
 
@@ -156,4 +168,5 @@ if __name__ == "__main__":
     try: main()
     finally: print >> sys.stderr, "%.3f/%.3f seconds overall" % (clock()-tc, time()-tt)
 
-
+else:
+    options.trace=False
